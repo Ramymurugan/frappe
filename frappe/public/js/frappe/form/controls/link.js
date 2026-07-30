@@ -845,16 +845,27 @@ frappe.ui.form.ControlLink = class ControlLink extends frappe.ui.form.ControlDat
 			$.extend(args.filters, this.df.filters);
 		}
 
-		if (this.df.link_filters && !!this.df.link_filters.length) {
-			args.filters = { ...(args.filters || {}), ...this.apply_link_field_filters() };
+		const reference_doctype = this.get_reference_doctype() || "";
+		const docfield_parent =
+			this.df?.parent || reference_doctype || (this.frm && this.frm.doctype) || "";
+		const meta_df =
+			docfield_parent && this.df?.fieldname
+				? frappe.meta.get_docfield(docfield_parent, this.df.fieldname)
+				: null;
+
+		let link_filters = this.df.link_filters || meta_df?.link_filters;
+
+		if (link_filters && !!link_filters.length) {
+			args.filters = { ...(args.filters || {}), ...this.apply_link_field_filters(link_filters) };
 		}
 	}
 
-	apply_link_field_filters() {
+	apply_link_field_filters(link_filters) {
+		link_filters = link_filters || this.df.link_filters;
 		try {
-			return this.parse_filters(JSON.parse(this.df.link_filters));
+			return this.parse_filters(JSON.parse(link_filters));
 		} catch (e) {
-			console.error("Invalid link_filters JSON:", this.df.link_filters, e);
+			console.error("Invalid link_filters JSON:", link_filters, e);
 			return {};
 		}
 	}
@@ -867,8 +878,8 @@ frappe.ui.form.ControlLink = class ControlLink extends frappe.ui.form.ControlDat
 				// get the value to calculate
 				value = value.split("eval:")[1];
 				let context = {
-					doc: this.doc,
-					parent: this.doc.parenttype ? this.frm.doc : null,
+					doc: this.doc || {},
+					parent: (this.doc && this.doc.parenttype && this.frm) ? this.frm.doc : null,
 					frappe,
 				};
 				value = frappe.utils.eval(value, context);
